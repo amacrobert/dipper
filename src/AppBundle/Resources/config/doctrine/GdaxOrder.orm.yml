@@ -1,0 +1,26 @@
+AppBundle\Entity\GdaxOrder:
+
+    type: entity
+    table: gdax_order
+
+    id:
+        id:
+            type: integer
+            generator: { strategy: AUTO }
+
+    fields:
+        gdax_id: { type: string }
+        price: { type: decimal, scale: 8, precision: 20 }
+        size: { type: decimal, scale: 8, precision: 20 }
+        product_id: { type: string }
+        side: { type: string }
+        stp: { type: string }
+        type: { type: string }
+        time_in_force: { type: string }
+        post_only: { type: boolean }
+        created_at: { type: datetime }
+        fill_fees: { type: decimal, scale: 16, precision: 20 }
+        filled_size: { type: decimal, scale: 8, precision: 20 }
+        executed_value: { type: decimal, scale: 16, precision: 20 }
+        status: { type: string }
+        settled: { type: boolean }
