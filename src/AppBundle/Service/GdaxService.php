@@ -3,21 +3,22 @@
 namespace AppBundle\Service;
 
 use GuzzleHttp\Client;
-use AppBundle\Entity\GdaxOrder as Order;
 
 class GdaxService {
 
-    const BASE_URL = 'https://api-public.sandbox.gdax.com'; // sandbox
-    //const BASE_URL = 'https://api.gdax.com'; // real site
+    //const BASE_URL = 'https://api-public.sandbox.gdax.com'; // sandbox
+    const BASE_URL = 'https://api.gdax.com'; // real site
 
     private $config;
     private $http;
-    private $em;
 
-    public function __construct($config, Client $http, $em) {
+    public function __construct($config, Client $http) {
         $this->config = $config;
         $this->http = $http;
-        $this->em = $em;
+    }
+
+    public function getBook($product, $level = 1) {
+        return $this->callGdax('/products/' . $product . '/book?level=' . $level);
     }
 
     public function getAccounts() {
@@ -30,6 +31,10 @@ class GdaxService {
 
     public function getOrder($order_id) {
         return $this->callGdax('/orders/' . $order_id);
+    }
+
+    public function deleteOrder($order_id) {
+        return $this->callGdax('/orders/' . $order_id, 'DELETE');
     }
 
     public function getFills() {
@@ -56,10 +61,10 @@ class GdaxService {
         return $this->callGdax('/products/' . $product . '/ticker');
     }
 
-    public function postLimitOrder($product, $coin_price, $coin_size) {
+    public function postLimitOrder($product, $side, $coin_price, $coin_size) {
         $body = [
             'type'       => 'limit',
-            'side'       => 'buy',
+            'side'       => $side,
             'product_id' => $product,
             'price'      => $coin_price,
             'size'       => $coin_size,
@@ -94,34 +99,5 @@ class GdaxService {
         $what = $timestamp . $method . $request_path . $body;
 
         return base64_encode(hash_hmac("sha256", $what, base64_decode($this->config['secret']), true));
-    }
-
-    public function orderFromGdax($gdax_order) {
-        $order = $this->em->getRepository(Order::class)->findOneBy(['gdax_id' => $gdax_order->id]);
-
-        if (!$order) {
-            $order = new Order;
-            $order->setGdaxId($gdax_order->id);
-            $this->em->persist($order);
-        }
-
-        $order
-            ->setPrice($gdax_order->price)
-            ->setSize($gdax_order->size)
-            ->setProductId($gdax_order->product_id)
-            ->setSide($gdax_order->side)
-            ->setStp($gdax_order->stp)
-            ->setType($gdax_order->type)
-            ->setTimeInForce($gdax_order->time_in_force)
-            ->setPostOnly($gdax_order->post_only)
-            ->setCreatedAt(new \DateTime($gdax_order->created_at))
-            ->setFillFees($gdax_order->fill_fees)
-            ->setFilledSize($gdax_order->filled_size)
-            ->setExecutedValue($gdax_order->executed_value)
-            ->setStatus($gdax_order->status)
-            ->setSettled($gdax_order->settled)
-        ;
-
-        $this->em->flush();
     }
 }

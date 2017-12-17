@@ -1,0 +1,14 @@
+AppBundle\Entity\Tier:
+
+    type: entity
+
+    id:
+        id:
+            type: integer
+            generator: { strategy: AUTO }
+
+    fields:
+        sequence: { type: integer, nullable: false }
+        spend: { type: decimal, scale: 2, nullable: false }
+        spread: { type: decimal, scale: 2, nullable: false }
+        lag_limit: { type: decimal, scale: 2, nullable: true }

@@ -1,0 +1,25 @@
+AppBundle\Entity\OrderPair:
+
+    type: entity
+    table: order_pair
+
+    id:
+        id:
+            type: integer
+            generator: { strategy: AUTO }
+
+    fields:
+        active: { type: boolean, nullable: false }
+        status: { type: string, nullable: true }
+        created_at: { type: datetime, nullable: false }
+        completed_at: { type: datetime, nullable: true }
+
+    oneToOne:
+        buy_order: { targetEntity: AppBundle\Entity\GdaxOrder, fetch: EAGER }
+        sell_order: { targetEntity: AppBundle\Entity\GdaxOrder, fetch: EAGER }
+
+    manyToOne:
+        tier: { targetEntity: AppBundle\Entity\Tier }
+
+    lifecycleCallbacks:
+        prePersist: [setCreatedAtToNow]
