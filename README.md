@@ -20,8 +20,9 @@ Additionally, Tiers can optionally have a lag limit. The lag limit applies to Or
 1. Run `composer install` from the root
 2. On gdax.com, create an API key with 'view' and 'trade' grants.
 3. Enter the generated API passphrase, key, and secret in app/config/parameters.yml
-4. To create trading tiers, run `bin/console server:start` and go to /admin for a configurable interface. Your GDAX USD balance must be at least equal to the total spends of all tiers.
-5. Run `bin/console dipper:work`
+4. Configure a MySQL database in parameters.yml, and run `bin/console doctrine:schema:update --force`
+5. To create trading tiers, run `bin/console server:start` and go to /admin for a configurable interface. Your GDAX USD balance must be at least equal to the total spends of all tiers.
+6. Run `bin/console dipper:work`
 
 ### About
 
