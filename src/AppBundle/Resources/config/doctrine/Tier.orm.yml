@@ -9,6 +9,7 @@ AppBundle\Entity\Tier:
 
     fields:
         sequence: { type: integer, nullable: false }
+        active: { type: boolean, nullable: false }
         spend: { type: decimal, scale: 2, nullable: false }
         bid_spread: { type: decimal, scale: 2, nullable: false }
         ask_spread: { type: decimal, scale: 2, nullable: false }

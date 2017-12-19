@@ -16,12 +16,11 @@ class DipperCoreService {
         $this->gdax = $gdax;
         $this->em = $em;
         $this->product = 'LTC-USD';
+        // Turn off sql logger to save memory
+        $this->em->getConnection()->getConfiguration()->setSQLLogger(null);
     }
 
     public function cycle() {
-
-        // Turn off sql logger to save memory
-        $this->em->getConnection()->getConfiguration()->setSQLLogger(null);
 
         $stats = (object)[
             'buys' => 0,
@@ -32,7 +31,6 @@ class DipperCoreService {
             'earnings' => 0,
             'errors' => [],
         ];
-
 
         $open_order_pairs = $this->getOpenOrderPairs();
 
@@ -223,6 +221,7 @@ class DipperCoreService {
             SELECT tier, pair
             FROM AppBundle\Entity\Tier tier
             LEFT JOIN AppBundle\Entity\OrderPair pair WITH pair.tier = tier AND pair.active = true
+            WHERE tier.active = true
         ";
  
         $query = $this->em->createQuery($dql);

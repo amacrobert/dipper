@@ -10,6 +10,7 @@ class Tier {
     private $bid_spread;
     private $ask_spread;
     private $lag_limit;
+    private $active = false;
 
     public function __toString() {
         return $this->getId() ? 'Tier ' . $this->getSequence() : 'New Tier';
@@ -62,5 +63,14 @@ class Tier {
 
     public function getLagLimit() {
         return $this->lag_limit;
+    }
+
+    public function isActive() {
+        return (bool)$this->active;
+    }
+
+    public function setActive($active) {
+        $this->active = $active;
+        return $this;
     }
 }
