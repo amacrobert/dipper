@@ -30,23 +30,34 @@ class DipperWorkCommand extends ContainerAwareCommand {
             try {
                 $r = $dipper->cycle();            
             }
-            catch (\GuzzleHttp\Exception\ClientException $e) {
+            catch (\GuzzleHttp\Exception\BadResponseException $e) {
                 $response = json_decode($e->getResponse()->getBody());
                 $status_code = $e->getResponse()->getStatusCode();
 
-                // Rate limit exceeded - cool down
-                if ($status_code == 429) {
-                    sleep(2);
-                }
-                else {
-                    throw $e;
+                switch ($status_code) {
+                    // Rate limit exceeded - cool down
+                    case 429:
+                        sleep(2);
+                        break;
+
+                    case 400:
+                    case 443:
+                        sleep(10);
+                        break;
+
+                    // Ignore gateway timeouts
+                    case 504:
+                        break;
+
+                    default:
+                        throw $e;
                 }
             }
             catch (\Exception $e) {
                 throw $e;
             }
 
-            if ($r->buys + $r->swaps + $r->sales + $r->canceled > 0) {
+            if ($r->buys + $r->swaps + $r->sales + $r->canceled + count($r->errors) > 0) {
 
                 $throbber->clear();
 

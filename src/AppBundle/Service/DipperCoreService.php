@@ -170,8 +170,8 @@ class DipperCoreService {
                             // Sell order was canceled - remove it from the OrderPair so it can be
                             // re-issued next cycle
                             if ($response->message == 'NotFound') {
-                                $order_pair->setSellOrder(null);
                                 $order_pair->getSellOrder()->setStatus('canceled');
+                                $order_pair->setSellOrder(null);
                                 $stats->canceled++;
 
                                 continue;
