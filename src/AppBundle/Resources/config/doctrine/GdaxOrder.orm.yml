@@ -19,8 +19,13 @@ AppBundle\Entity\GdaxOrder:
         time_in_force: { type: string }
         post_only: { type: boolean }
         created_at: { type: datetime }
+        done_at: { type: datetime, nullable: true }
+        done_reason: { type: string, nullable: true }
         fill_fees: { type: decimal, scale: 16, precision: 20 }
         filled_size: { type: decimal, scale: 8, precision: 20 }
         executed_value: { type: decimal, scale: 16, precision: 20 }
         status: { type: string }
         settled: { type: boolean }
+
+    indexes:
+        gdax_order_id: { columns: [gdax_id] }

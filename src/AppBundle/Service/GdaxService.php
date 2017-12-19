@@ -25,8 +25,9 @@ class GdaxService {
         return $this->callGdax('/accounts');
     }
 
-    public function getOrders() {
-        return $this->callGdax('/orders');
+    public function getOrders($params = []) {
+        $query = http_build_query($params);
+        return $this->callGdax('/orders?' . $query);
     }
 
     public function getOrder($order_id) {

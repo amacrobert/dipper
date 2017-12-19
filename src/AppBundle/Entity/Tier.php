@@ -7,7 +7,8 @@ class Tier {
     private $id;
     private $sequence;
     private $spend;
-    private $spread;
+    private $bid_spread;
+    private $ask_spread;
     private $lag_limit;
 
     public function __toString() {
@@ -36,13 +37,22 @@ class Tier {
         return $this->spend;
     }
 
-    public function setSpread($spread) {
-        $this->spread = $spread;
+    public function setBidSpread($bid_spread) {
+        $this->bid_spread = $bid_spread;
         return $this;
     }
 
-    public function getSpread() {
-        return $this->spread;
+    public function getBidSpread() {
+        return $this->bid_spread;
+    }
+
+    public function setAskSpread($ask_spread) {
+        $this->ask_spread = $ask_spread;
+        return $this;
+    }
+
+    public function getAskSpread() {
+        return $this->ask_spread;
     }
 
     public function setLagLimit($lagLimit) {

@@ -16,6 +16,8 @@ class GdaxOrder {
     private $time_in_force;
     private $post_only;
     private $created_at;
+    private $done_at;
+    private $done_reason;
     private $fill_fees;
     private $filled_size;
     private $executed_value;
@@ -114,6 +116,24 @@ class GdaxOrder {
 
     public function getCreatedAt() {
         return $this->created_at;
+    }
+
+    public function getDoneAt() {
+        return $this->done_at;
+    }
+
+    public function setDoneAt($done_at) {
+        $this->done_at = $done_at;
+        return $this;
+    }
+
+    public function getDoneReason() {
+        return $this->done_reason;
+    }
+
+    public function setDoneReason($done_reason) {
+        $this->done_reason = $done_reason;
+        return $this;
     }
 
     public function setFillFees($fill_fees) {

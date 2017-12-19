@@ -20,25 +20,30 @@ class DipperCoreService {
 
     public function cycle() {
 
+        // Turn off sql logger to save memory
+        $this->em->getConnection()->getConfiguration()->setSQLLogger(null);
+
         $stats = (object)[
-            'buy_orders_created' => 0,
-            'buy_orders_closed' => 0,
-            'sell_orders_created' => 0,
-            'sell_orders_closed' => 0,
-            'orders_cancelled' => 0,
+            'buys' => 0,
+            'swaps' => 0,
+            'sales' => 0,
+            'lagouts' => 0,
+            'canceled' => 0,
             'earnings' => 0,
             'errors' => [],
         ];
+
 
         $open_order_pairs = $this->getOpenOrderPairs();
 
         $book = $this->gdax->getBook($this->product);
         $market_bid = $book->bids[0][0] ?? 100;
         $market_ask = $book->asks[0][0] ?? 100.01;
-
         // For testing only
-        //$market_bid = 20;
-        //$market_ask = 20.01;
+        // $market_bid = 200;
+        // $market_ask = 200.01;
+
+        $orders_by_gdax_id = $this->ordersFromGdax();
 
         foreach ($open_order_pairs as $order_pair) {
 
@@ -48,7 +53,7 @@ class DipperCoreService {
             // Buy order hasn't been placed yet - create it
             if (!$buy_order) {
                 $spend = $order_pair->getTier()->getSpend();
-                $spread = $order_pair->getTier()->getSpread();
+                $spread = $order_pair->getTier()->getBidSpread();
                 $coin_price = $market_ask - $spread;
                 $perfect_size = $spend / $coin_price;
                 $coin_size = floor($perfect_size * 1e7) / 1e7;
@@ -60,7 +65,7 @@ class DipperCoreService {
                         ->setStatus('open')
                     ;
 
-                    $stats->buy_orders_created++;
+                    $stats->buys++;
                 }
                 catch (\Exception $e) {
                     $stats->errors[] = $e->getMessage();
@@ -73,32 +78,47 @@ class DipperCoreService {
                 // No sell order exists - check status of paired buy order
                 if (!$sell_order) {
 
-                    try {
-                        $gdax_order_id = $buy_order->getGdaxId();
-                        $gdax_order = $this->gdax->getOrder($gdax_order_id);
-                        $buy_order = $this->makeOrderFromGdax($gdax_order);                        
-                    }
-                    catch (\Exception $e) {
-                        $order_pair
-                            ->setStatus('cancelled')
-                            ->setCompletedAt(new \DateTime)
-                            ->setActive(false)
-                        ;
-                        $stats->orders_cancelled++;
-                        $stats->errors[] = $e->getMessage();
-                        continue;
+                    $gdax_order_id = $buy_order->getGdaxId();
+                    $buy_order = $orders_by_gdax_id[$gdax_order_id] ?? null;
+
+                    // Buy order wasn't in the order index - check for it specifically from GDAX
+                    if (!$buy_order) {
+                        try {
+                            $gdax_order = $this->gdax->getOrder($gdax_order_id);
+                            $buy_order = $this->makeOrderFromGdax($gdax_order);
+                        }
+                        catch (\GuzzleHttp\Exception\ClientException $e) {
+                            $response = json_decode($e->getResponse()->getBody());
+
+                            // Buy order was canceled before any of it was fulfilled
+                            if ($response->message == 'NotFound') {
+                                $order_pair
+                                    ->setStatus('canceled')
+                                    ->setCompletedAtToNow()
+                                    ->setActive(false)
+                                ;
+                                $order_pair->getBuyOrder()->setStatus('canceled');
+                                $stats->canceled++;
+
+                                continue;
+                            }
+                            else {
+                                throw $e;
+                            }
+                        }
+                        catch (\Exception $e) {
+                            $stats->errors[] = $e->getMessage();
+                        }
                     }
 
                     // Buy order has been settled - create corresponding sell order
                     if ($buy_order->getSettled()) {
-                        $stats->buy_orders_closed++;
 
-                        $spread = $order_pair->getTier()->getSpread();
                         $spend = $order_pair->getTier()->getSpend();
+                        $spread = $order_pair->getTier()->getAskSpread();
+                        $coin_price = $buy_order->getPrice() + $spread;
 
-                        $coin_price = $buy_order->getPrice() + ($spread * 2);
-
-                        // Recoup any fees from the buy
+                        // If the buy incurred a fee, recoup it on the sell
                         $coin_price += ($buy_order->getPrice() / $buy_order->getExecutedValue()) * $buy_order->getFillFees();
 
                         // Always ask above the market bid to ensure limit order
@@ -106,58 +126,74 @@ class DipperCoreService {
                             $coin_price = $market_bid + .10;
                         }
 
-                        // Sell the buy volume for a higher amount
+                        // Flip the buy volume for a profit
                         $coin_size = $buy_order->getFilledSize();
 
                         $sell_order = $this->sell(round($coin_price, 2), $coin_size);
                         $order_pair->setSellOrder($sell_order);
-                        $stats->sell_orders_created++;                            
+                        $stats->swaps++;
                     }
 
-                    // If buy order lags the market value beyond treshhold, cancel it
+                    // If buy order lags the market ask beyond the lag limit, cancel the order so it
+                    // can be re-issued at a high bid next cycle
                     else {
                         $lag_limit = $order_pair->getTier()->getLagLimit();
 
                         if ($lag_limit && $lag_limit < $market_ask - $buy_order->getPrice()) {
                             $order_pair
                                 ->setStatus('lagged-out')
-                                ->setCompletedAt(new \DateTime)
+                                ->setCompletedAtToNow()
                                 ->setActive(false)
                             ;
 
                             $this->gdax->deleteOrder($buy_order->getGdaxId());
 
-                            $stats->orders_cancelled++;
+                            $stats->lagouts++;
                         }
                     }
                 }
 
                 // Sell order exists - check if it's settled
                 else {
-                    try {
-                        $gdax_order_id = $sell_order->getGdaxId();
-                        $gdax_order = $this->gdax->getOrder($gdax_order_id);
-                        $sell_order = $this->makeOrderFromGdax($gdax_order);
+                    $gdax_order_id = $sell_order->getGdaxId();
+                    $sell_order = $orders_by_gdax_id[$gdax_order_id] ?? null;
 
-                        // Sell order is completed
-                        if ($sell_order->getSettled()) {
-                            $order_pair
-                                ->setStatus('completed')
-                                ->setCompletedAt(new \DateTime)
-                                ->setActive(false)
-                            ;
-                            $stats->sell_orders_closed++;
-                            $stats->earnings += round($sell_order->getExecutedValue() - $buy_order->getExecutedValue(), 7);
+                    // Sell order wasn't in index - check GDAX for it
+                    if (!$sell_order) {
+                        try {
+                            $gdax_order = $this->gdax->getOrder($gdax_order_id);
+                            $sell_order = $this->makeOrderFromGdax($gdax_order);
+                        }
+                        catch (\GuzzleHttp\Exception\ClientException $e) {
+                            $response = json_decode($e->getResponse()->getBody());
+
+                            // Sell order was canceled - remove it from the OrderPair so it can be
+                            // re-issued next cycle
+                            if ($response->message == 'NotFound') {
+                                $order_pair->setSellOrder(null);
+                                $order_pair->getSellOrder()->setStatus('canceled');
+                                $stats->canceled++;
+
+                                continue;
+                            }
+                            else {
+                                throw $e;
+                            }
+                        }
+                        catch (\Exception $e) {
+                            $stats->errors[] = $e->getMessage();
                         }
                     }
-                    catch (\Exception $e) {
+
+                    // Sell order is completed
+                    if ($sell_order->getSettled()) {
                         $order_pair
-                            ->setStatus('cancelled')
-                            ->setCompletedAt(new \DateTime)
+                            ->setStatus('completed')
+                            ->setCompletedAtToNow()
                             ->setActive(false)
                         ;
-                        $stats->orders_cancelled++;
-                        $stats->errors[] = $e->getMessage();
+                        $stats->sales++;
+                        $stats->earnings += round($sell_order->getExecutedValue() - $buy_order->getExecutedValue(), 7);
                     }
                 }
             }
@@ -223,13 +259,15 @@ class DipperCoreService {
         return $order_pairs;
     }
 
-    public function makeOrderFromGdax($gdax_order) {
-        $order = $this->em->getRepository(Order::class)->findOneBy(['gdax_id' => $gdax_order->id]);
-
+    public function makeOrderFromGdax($gdax_order, $order = null) {
         if (!$order) {
-            $order = new Order;
-            $order->setGdaxId($gdax_order->id);
-            $this->em->persist($order);
+            $order = $this->em->getRepository(Order::class)->findOneBy(['gdax_id' => $gdax_order->id]);
+
+            if (!$order) {
+                $order = new Order;
+                $order->setGdaxId($gdax_order->id);
+                $this->em->persist($order);
+            }
         }
 
         $order
@@ -242,6 +280,8 @@ class DipperCoreService {
             ->setTimeInForce($gdax_order->time_in_force)
             ->setPostOnly($gdax_order->post_only)
             ->setCreatedAt(new \DateTime($gdax_order->created_at))
+            ->setDoneAt(isset($gdax_order->done_at) ? new \DateTime($gdax_order->done_at) : null)
+            ->setDoneReason($gdax_order->done_reason ?? null)
             ->setFillFees($gdax_order->fill_fees)
             ->setFilledSize($gdax_order->filled_size)
             ->setExecutedValue($gdax_order->executed_value)
@@ -252,31 +292,73 @@ class DipperCoreService {
         return $order;
     }
 
+    /**
+     * Get the last 100 orders from GDAX and update the local orders.
+     * Return local orders indexed by the GDAX order id.
+     */
+    public function ordersFromGdax() {
+        $gdax_orders = $this->gdax->getOrders(['status' => 'all', 'product_id' => $this->product]);
+        $orders_by_gdax_id = [];
 
+        foreach ($gdax_orders as $gdax_order) {
+            $order = $this->makeOrderFromGdax($gdax_order);
+            $orders_by_gdax_id[$order->getGdaxId()] = $order;
+        }
 
+        return $orders_by_gdax_id;
+    }
 
-    // update all orders in the datbase with their corresponding values from gdax
+    // Sync database orders with gdax orders
     public function runUpdateOrders($o) {
 
+        $stats = (object)[
+            'orders_deleted' => 0,
+            'orders_created' => 0,
+        ];
+
+        // Update all existing orders in the database from gdax
+        $o->writeln('Syncing existing database orders from gdax');
         $orders = $this->em->getRepository(Order::class)->findAll();
         $progress = new ProgressBar($o, count($orders));
         $progress->start();
-        $stats = (object)[
-            'orders_deleted' => 0,
-        ];
 
         foreach ($orders as $order) {
-            if ($order->getStatus() == 'deleted') {
+            if ($order->getStatus() == 'canceled') {
                 continue;
             }
 
             try {
                 $gdax_order = $this->gdax->getOrder($order->getGdaxId());
-                $order = $this->makeOrderFromGdax($gdax_order);
+                $order = $this->makeOrderFromGdax($gdax_order, $order);
             }
-            catch (\Exception $e) {
-                $order->setStatus('deleted');
+            catch (\GuzzleHttp\Exception\ClientException $e) {
+                $response = json_decode($e->getResponse()->getBody());
+
+                if ($response->message == 'NotFound') {
+                    $order->setStatus('canceled');
+                    $stats->orders_deleted++;
+                }
+                else {
+                    throw $e;
+                }
             }
+            $progress->advance();
+        }
+
+        $progress->finish();
+        $o->write(PHP_EOL);
+
+        $o->writeln('Checking gdax for missing orders');
+        $gdax_orders = $this->gdax->getOrders(['status' => 'all', 'product_id' => $this->product]);
+        $progress = new ProgressBar($o, count($gdax_orders));
+        $progress->start();
+
+        foreach ($gdax_orders as $gdax_order) {
+            $order = $this->makeOrderFromGdax($gdax_order);
+            if (!$order->getId()) {
+                $stats->orders_created++;
+            }
+
             $progress->advance();
         }
 
@@ -285,6 +367,8 @@ class DipperCoreService {
 
         $this->em->flush();
 
-        $o->writeln(count($orders) . ' orders checked. ' . $stats->orders_deleted . ' orders deleted.');
+        $o->writeln(' - ' . count($gdax_orders) . ' orders checked');
+        $o->writeln(' - ' . $stats->orders_deleted . ' orders deleted');
+        $o->writeln(' - ' . $stats->orders_created . ' orders created');
     }
 }

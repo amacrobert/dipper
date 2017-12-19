@@ -17,9 +17,10 @@ class TierAdmin extends AbstractAdmin {
     protected function configureFormFields(FormMapper $formMapper) {
         $formMapper
             ->add('sequence')
-            ->add('spend', null, ['required' => true, 'help' => 'Order size (USD)'])
-            ->add('spread', null, ['required' => true, 'help' => 'Difference from market value to buy/sell for (USD)'])
-            ->add('lag_limit', null, ['required' => false, 'help' => 'Cancel and re-issue buy order when it trails market value by this much (USD)'])
+            ->add('spend', null, ['required' => true, 'help' => 'Buy size (USD)'])
+            ->add('bid_spread', null, ['required' => true, 'help' => 'Bid for this amount below market ask (USD)'])
+            ->add('ask_spread', null, ['required' => true, 'help' => 'Ask for this amount above associated buy price (USD)'])
+            ->add('lag_limit', null, ['required' => false, 'help' => 'Cancel and re-issue buy order when it trails market ask by this much (USD)'])
         ;
     }
 
@@ -31,10 +32,11 @@ class TierAdmin extends AbstractAdmin {
 
     protected function configureListFields(ListMapper $listMapper) {
         $listMapper
-            ->add('sequence', null, ['editable' => true])
-            ->add('spend', 'float', ['editable' => true])
-            ->add('spread', 'decimal', ['editable' => true])
-            ->add('lag_limit', 'decimal', ['editable' => true])
+            ->add('sequence')
+            ->add('spend')
+            ->add('bid_spread')
+            ->add('ask_spread')
+            ->add('lag_limit')
             ->add('_action', null, [
                     'actions' => [
                         'edit' => [],

@@ -62,6 +62,10 @@ class OrderPair {
         return $this;
     }
 
+    public function setCompletedAtToNow() {
+        return $this->setCompletedAt(new \DateTime);
+    }
+
     public function getCompletedAt() {
         return $this->completed_at;
     }

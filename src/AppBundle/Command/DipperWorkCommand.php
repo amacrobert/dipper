@@ -30,30 +30,36 @@ class DipperWorkCommand extends ContainerAwareCommand {
             try {
                 $r = $dipper->cycle();            
             }
+            catch (\GuzzleHttp\Exception\ClientException $e) {
+                $response = json_decode($e->getResponse()->getBody());
+                $status_code = $e->getResponse()->getStatusCode();
+
+                // Rate limit exceeded - cool down
+                if ($status_code == 429) {
+                    sleep(2);
+                }
+                else {
+                    throw $e;
+                }
+            }
             catch (\Exception $e) {
-                $output->writeln($e->getMessage());
-                sleep(2);
+                throw $e;
             }
 
-            if ($r->buy_orders_created
-                + $r->buy_orders_closed
-                + $r->sell_orders_created
-                + $r->sell_orders_closed
-                + $r->orders_cancelled
-                > 0) {
+            if ($r->buys + $r->swaps + $r->sales + $r->canceled > 0) {
 
                 $throbber->clear();
 
                 if (!($counter % 10)) {
-                    $output->writeln('BUYS OPENED | BUYS CLOSED | SELLS OPENED | SELLS CLOSED | CANCELLED | EARNINGS');
+                    $output->writeln('BUYS | SWAPS | SALES | LAGOUTS | CANCELED | EARNINGS');
                 }
 
                 $output->writeln(
-                    $this->colStr($r->buy_orders_created, 11) .
-                    $this->colStr($r->buy_orders_closed, 14) .
-                    $this->colStr($r->sell_orders_created, 15) .
-                    $this->colStr($r->sell_orders_closed, 15) .
-                    $this->colStr($r->orders_cancelled, 12) .
+                    $this->colStr($r->buys, 4) .
+                    $this->colStr($r->swaps, 8) .
+                    $this->colStr($r->sales, 8) .
+                    $this->colStr($r->lagouts, 10) .
+                    $this->colStr($r->canceled, 11) .
                     '   ' . $r->earnings
                 );
 
@@ -71,7 +77,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
     }
 
     private function colStr($str, $width) {
-        $str = $str ?: ' ';
+        $str = $str ?: '-';
         return str_pad($str, $width, ' ', STR_PAD_LEFT);
     }
 }
