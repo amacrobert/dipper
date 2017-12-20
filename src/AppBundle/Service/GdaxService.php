@@ -8,6 +8,7 @@ class GdaxService {
 
     //const BASE_URL = 'https://api-public.sandbox.gdax.com'; // sandbox
     const BASE_URL = 'https://api.gdax.com'; // real site
+    const RATE_LIMIT = 3; // Allowable API calls per second
 
     private $config;
     private $http;
@@ -69,6 +70,7 @@ class GdaxService {
             'product_id' => $product,
             'price'      => $coin_price,
             'size'       => $coin_size,
+            'post_only'  => true,
         ];
 
         return $this->callGdax('/orders', 'POST', $body);
