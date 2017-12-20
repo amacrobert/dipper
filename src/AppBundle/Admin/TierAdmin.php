@@ -14,6 +14,9 @@ class TierAdmin extends AbstractAdmin {
         '_sort_order' => 'ASC',
     ];
 
+    protected $maxPerPage = 500;
+    protected $perPageOptions = [10, 100, 200, 500, 1000];
+
     protected function configureFormFields(FormMapper $formMapper) {
         $formMapper
             ->add('sequence')
