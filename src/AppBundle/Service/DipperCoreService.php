@@ -158,8 +158,8 @@ class DipperCoreService {
                     // can be re-issued at a higher bid next cycle
                     else {
                         $lag_limit = $order_pair->getTier()->getLagLimit();
-                        // Note: don't cancel partially filled buys
-                        $partially_filled = (bool)$buy_order->getExecutedValue();
+                        // Don't cancel partially filled buys
+                        $partially_filled = $buy_order->getExecutedValue() > 0;
 
                         if (!$partially_filled && $lag_limit && $lag_limit < $market_ask - $buy_order->getPrice()) {
                             $order_pair

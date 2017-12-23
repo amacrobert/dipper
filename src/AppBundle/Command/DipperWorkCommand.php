@@ -24,6 +24,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
         $dipper = $this->getContainer()->get(DipperCoreService::class);
 
         $this->counter = 0;
+        $this->total_earnings = 0;
         $throbber = new ProgressBar($output);
         $throbber->start();
 
@@ -42,6 +43,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
 
             try {
                 $r = $dipper->cycle();
+                $this->total_earnings += $r->earnings;
                 $this->output($r, $output, $throbber);
             }
             catch (\GuzzleHttp\Exception\BadResponseException $e) {
@@ -87,7 +89,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
             $throbber->clear();
 
             if (!($this->counter % 10)) {
-                $output->writeln('BUYS | SWAPS | SALES | LAGOUTS | CANCELED | EARNINGS');
+                $output->writeln('BUYS | SWAPS | SALES | LAGOUTS | CANCELED | EARNINGS  | SESSION TOTAL');
             }
 
             $output->writeln(
@@ -96,7 +98,8 @@ class DipperWorkCommand extends ContainerAwareCommand {
                 $this->colStr($r->sales, 8) .
                 $this->colStr($r->lagouts, 10) .
                 $this->colStr($r->canceled, 11) .
-                '   ' . $r->earnings
+                '   ' . str_pad($r->earnings, 9, '0', STR_PAD_RIGHT) .
+                '   ' . $this->total_earnings
             );
 
             foreach ($r->errors as $error) {
