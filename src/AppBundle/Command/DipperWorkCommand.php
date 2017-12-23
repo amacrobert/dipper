@@ -23,7 +23,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
     protected function execute(InputInterface $input, OutputInterface $output) {
         $dipper = $this->getContainer()->get(DipperCoreService::class);
 
-        $counter = 0;
+        $this->counter = 0;
         $throbber = new ProgressBar($output);
         $throbber->start();
 
@@ -42,13 +42,15 @@ class DipperWorkCommand extends ContainerAwareCommand {
 
             try {
                 $r = $dipper->cycle();
-                $this->output($r, $throbber);
+                $this->output($r, $output, $throbber);
             }
             catch (\GuzzleHttp\Exception\BadResponseException $e) {
                 $response = json_decode($e->getResponse()->getBody());
                 $status_code = $e->getResponse()->getStatusCode();
 
-                $output->writeln($status_code);
+                $throbber->clear();
+                $output->writeln('error code ' . $status_code . ' on cycle ' . $throbber->getProgress());
+                $throbber->display();
 
                 switch ($status_code) {
                     // Rate limit exceeded - cool down
@@ -57,35 +59,34 @@ class DipperWorkCommand extends ContainerAwareCommand {
                         break;
 
                     case 400:
+                        $throbber->clear();
+                        $output->writeln($e->getMessage());
+                        $throbber->display();
+
                     case 443:
                     case 500:
-                        sleep(10);
-                        break;
-
-                    // Ignore gateway timeouts
                     case 504:
+                        sleep(10);
                         break;
 
                     default:
                         throw $e;
                 }
             }
-            catch (\Exception $e) {
-                throw $e;
-            }
 
             $throbber->advance();
+            $output->write(' PPO: ' . round($r->ppo, 4) . '%');
 
             $t_end = microtime(true);
         }
     }
 
-    private function output($r, $throbber) {
+    private function output($r, $output, $throbber) {
         if ($r->buys + $r->swaps + $r->sales + $r->canceled + count($r->errors) > 0) {
 
             $throbber->clear();
 
-            if (!($counter % 10)) {
+            if (!($this->counter % 10)) {
                 $output->writeln('BUYS | SWAPS | SALES | LAGOUTS | CANCELED | EARNINGS');
             }
 
@@ -103,7 +104,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
             }
 
             $throbber->display();
-            $counter++;
+            $this->counter++;
         }
     }
 

@@ -3,13 +3,14 @@
 namespace AppBundle\Entity;
 
 class Tier {
-    
+
     private $id;
     private $sequence;
     private $spend;
     private $bid_spread;
     private $ask_spread;
     private $lag_limit;
+    private $buy_max_ppo;
     private $active = false;
 
     public function __toString() {
@@ -63,6 +64,15 @@ class Tier {
 
     public function getLagLimit() {
         return $this->lag_limit;
+    }
+
+    public function getBuyMaxPPO() {
+        return $this->buy_max_ppo;
+    }
+
+    public function setBuyMaxPPO($ppo) {
+        $this->buy_max_ppo = $ppo;
+        return $this;
     }
 
     public function isActive() {

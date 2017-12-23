@@ -8,14 +8,72 @@ class GdaxService {
 
     //const BASE_URL = 'https://api-public.sandbox.gdax.com'; // sandbox
     const BASE_URL = 'https://api.gdax.com'; // real site
-    const RATE_LIMIT = 3; // Allowable API calls per second
+    const RATE_LIMIT = 1; // Allowable API calls per second
 
     private $config;
     private $http;
+    private $candles = null;
 
     public function __construct($config, Client $http) {
         $this->config = $config;
         $this->http = $http;
+    }
+
+    public function ppo($product) {
+        $ema12 = $this->ema12($product);
+        $ema26 = $this->ema26($product);
+
+        return 100 * ($ema12 - $ema26) / $ema26;
+    }
+
+    public function clearCandles() {
+        $this->candles = null;
+        return $this;
+    }
+
+    public function ema12($product) {
+        return $this->ema($this->getCloses($product), 12);
+    }
+
+    public function ema26($product) {
+        return $this->ema($this->getCloses($product), 26);
+    }
+
+    // exponential moving average
+    public function ema($values, $periods) {
+        $values = array_reverse(array_slice($values, 0, $periods));
+        $periods = count($values);
+        $last_ema = $values[0];
+
+        $k = 2 / ($periods + 1);
+        for ($i = 0; $i < $periods; $i++) {
+            $last_ema = $last_ema + ($k * ($values[$i] - $last_ema));
+        }
+
+        return $last_ema;
+    }
+
+    // simple moving average
+    public function sma($values, $periods) {
+        $values = array_slice($values, 0, $periods);
+        $periods = count($values);
+
+        return array_sum($values) / $periods;
+    }
+
+    public function getCloses($product) {
+        $closes = array_map(function($candle) {
+            return $candle[4];
+        }, $this->getCandles($product));
+
+        return $closes;
+    }
+
+    public function getCandles($product) {
+        if (!$this->candles) {
+            $this->candles = $this->callGdax('/products/' . $product . '/candles');
+        }
+        return $this->candles;
     }
 
     public function getBook($product, $level = 1) {

@@ -19,12 +19,17 @@ class TierAdmin extends AbstractAdmin {
 
     protected function configureFormFields(FormMapper $formMapper) {
         $formMapper
-            ->add('sequence')
-            ->add('active')
-            ->add('spend', null, ['required' => true, 'help' => 'Buy size (USD)'])
-            ->add('bid_spread', null, ['required' => true, 'help' => 'Bid for this amount below market ask (USD)'])
-            ->add('ask_spread', null, ['required' => true, 'help' => 'Ask for this amount above associated buy price (USD)'])
-            ->add('lag_limit', null, ['required' => false, 'help' => 'Cancel and re-issue buy order when it trails market ask by this much (USD)'])
+            ->with('General', ['class' => 'col-md-6'])
+                ->add('sequence')
+                ->add('active')
+                ->add('spend', null, ['required' => true, 'help' => 'Buy size (USD)'])
+                ->add('bid_spread', null, ['required' => true, 'help' => 'Bid for this amount below market ask (USD)'])
+                ->add('ask_spread', null, ['required' => true, 'help' => 'Ask for this amount above associated buy price (USD)'])
+            ->end()
+            ->with('Conditions', ['class' => 'col-md-6'])
+                ->add('lag_limit', null, ['required' => false, 'help' => 'Cancel and re-issue buy order when it trails market ask by this much (USD)'])
+                ->add('buy_max_ppo', null, ['label' => 'Buy Max PPO', 'required' => false, 'help' => 'Only place buy order if the 26-minute percentage price oscillator is less than or equal to this amout (value in %)'])
+            ->end()
         ;
     }
 
@@ -43,6 +48,7 @@ class TierAdmin extends AbstractAdmin {
             ->add('bid_spread')
             ->add('ask_spread')
             ->add('lag_limit')
+            ->add('buy_max_ppo', null, ['label' => 'Buy Max PPO'])
             ->add('_action', null, [
                     'actions' => [
                         'edit' => [],

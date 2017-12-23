@@ -29,10 +29,13 @@ class DipperCoreService {
             'lagouts' => 0,
             'canceled' => 0,
             'earnings' => 0,
+            'ppo' => 0,
             'errors' => [],
         ];
 
         $open_order_pairs = $this->getOpenOrderPairs();
+        $ppo = $this->gdax->ppo($this->product);
+        $stats->ppo = $ppo;
 
         $book = $this->gdax->getBook($this->product);
         $market_bid = $book->bids[0][0] ?? 100;
@@ -48,8 +51,16 @@ class DipperCoreService {
             $buy_order = $order_pair->getBuyOrder();
             $sell_order = $order_pair->getSellOrder();
 
-            // Buy order hasn't been placed yet - create it
+            // Buy order hasn't been placed yet
             if (!$buy_order) {
+
+                // Current PPO is above the buy max PPO. Don't place an order.
+                $buy_max_ppo = $order_pair->getTier()->getBuyMaxPPO();
+                if ($buy_max_ppo !== null && $ppo > $buy_max_ppo) {
+                    continue;
+                }
+
+                // Place a bid
                 $spend = $order_pair->getTier()->getSpend();
                 $spread = $order_pair->getTier()->getBidSpread();
                 $coin_price = $market_ask - $spread;
@@ -112,16 +123,27 @@ class DipperCoreService {
                     // Buy order has been settled - create corresponding sell order
                     if ($buy_order->getSettled()) {
 
+                        // If the reason the buy order was settled was because it was
+                        // rejected, close this order pair
+                        if ($buy_order->getStatus() == 'rejected') {
+                            $order_pair
+                                ->setStatus('buy-rejected')
+                                ->setCompletedAtToNow()
+                                ->setActive(false)
+                            ;
+                            $stats->canceled++;
+                            continue;
+                        }
+
                         $spend = $order_pair->getTier()->getSpend();
                         $spread = $order_pair->getTier()->getAskSpread();
                         $coin_price = $buy_order->getPrice() + $spread;
 
                         // If the buy incurred a fee, recoup it on the sell
                         $coin_price += ($buy_order->getPrice() / $buy_order->getExecutedValue()) * $buy_order->getFillFees();
-
-                        // Always ask above the market bid to ensure limit order
+                        // Always ask above the market bid
                         if ($coin_price <= $market_bid) {
-                            $coin_price = $market_bid + .10;
+                            $coin_price = $market_bid + .01;
                         }
 
                         // Flip the buy volume for a profit
@@ -133,11 +155,13 @@ class DipperCoreService {
                     }
 
                     // If buy order lags the market ask beyond the lag limit, cancel the order so it
-                    // can be re-issued at a high bid next cycle
+                    // can be re-issued at a higher bid next cycle
                     else {
                         $lag_limit = $order_pair->getTier()->getLagLimit();
+                        // Note: don't cancel partially filled buys
+                        $partially_filled = (bool)$buy_order->getExecutedValue();
 
-                        if ($lag_limit && $lag_limit < $market_ask - $buy_order->getPrice()) {
+                        if (!$partially_filled && $lag_limit && $lag_limit < $market_ask - $buy_order->getPrice()) {
                             $order_pair
                                 ->setStatus('lagged-out')
                                 ->setCompletedAtToNow()
@@ -185,19 +209,27 @@ class DipperCoreService {
 
                     // Sell order is completed
                     if ($sell_order->getSettled()) {
-                        $order_pair
-                            ->setStatus('completed')
-                            ->setCompletedAtToNow()
-                            ->setActive(false)
-                        ;
-                        $stats->sales++;
-                        $stats->earnings += round($sell_order->getExecutedValue() - $buy_order->getExecutedValue(), 7);
+
+                        // If the sell was settled because it was rejected, nullify the order pair's sell
+                        if ($sell_order->getStatus() == 'rejected') {
+                            $order_pair->setSellOrder(null);
+                        }
+                        else {
+                            $order_pair
+                                ->setStatus('completed')
+                                ->setCompletedAtToNow()
+                                ->setActive(false)
+                            ;
+                            $stats->sales++;
+                            $stats->earnings += round($sell_order->getExecutedValue() - $buy_order->getExecutedValue(), 7);
+                        }
                     }
                 }
             }
         }
 
         $this->em->flush();
+        $this->gdax->clearCandles();
 
         return $stats;
     }
