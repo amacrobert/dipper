@@ -2,7 +2,7 @@
 
 namespace AppBundle\Entity;
 
-class OrderPair {
+class OrderPair implements \JsonSerializable {
 
     private $id;
     private $tier;
@@ -15,6 +15,17 @@ class OrderPair {
 
     public function getId() {
         return $this->id;
+    }
+
+    public function jsonSerialize() {
+        return [
+            'id' => $this->getId(),
+            'tier_id' => $this->getTier()->getId(),
+            'status' => $this->getStatus(),
+            'created_at' => $this->getCreatedAt(),
+            'completed_at' => $this->getCompletedAt(),
+            'active' => $this->isActive(),
+        ];
     }
 
     public function setTier($tier) {
@@ -31,7 +42,7 @@ class OrderPair {
         return $this;
     }
 
-    public function getActive() {
+    public function isActive() {
         return $this->active;
     }
 

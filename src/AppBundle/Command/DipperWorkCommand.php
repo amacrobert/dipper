@@ -42,17 +42,13 @@ class DipperWorkCommand extends ContainerAwareCommand {
             $t_start = microtime(true);
 
             try {
-                $r = $dipper->cycle();
+                $r = $dipper->cycle($throbber->getProgress());
                 $this->total_earnings += $r->earnings;
                 $this->output($r, $output, $throbber);
             }
             catch (\GuzzleHttp\Exception\BadResponseException $e) {
                 $response = json_decode($e->getResponse()->getBody());
                 $status_code = $e->getResponse()->getStatusCode();
-
-                $throbber->clear();
-                $output->writeln('error code ' . $status_code . ' on cycle ' . $throbber->getProgress());
-                $throbber->display();
 
                 switch ($status_code) {
                     // Rate limit exceeded - cool down
@@ -88,7 +84,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
 
             $throbber->clear();
 
-            if (!($this->counter % 10)) {
+            if (!($this->counter % 20)) {
                 $output->writeln('BUYS | SWAPS | SALES | LAGOUTS | CANCELED | EARNINGS  | SESSION TOTAL');
             }
 
@@ -98,7 +94,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
                 $this->colStr($r->sales, 8) .
                 $this->colStr($r->lagouts, 10) .
                 $this->colStr($r->canceled, 11) .
-                '   ' . str_pad($r->earnings, 9, '0', STR_PAD_RIGHT) .
+                '   ' . str_pad($r->earnings, 9, $r->earnings > 0 ? '0' : ' ', STR_PAD_RIGHT) .
                 '   ' . $this->total_earnings
             );
 

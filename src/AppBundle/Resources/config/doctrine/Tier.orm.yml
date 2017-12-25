@@ -15,3 +15,4 @@ AppBundle\Entity\Tier:
         ask_spread: { type: decimal, scale: 2, nullable: false }
         lag_limit: { type: decimal, scale: 2, nullable: true }
         buy_max_ppo: { type: decimal, scale: 4, nullable: true }
+        sell_min_ppo: { type: decimal, scale: 4, nullable: true }

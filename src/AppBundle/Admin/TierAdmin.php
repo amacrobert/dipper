@@ -29,6 +29,7 @@ class TierAdmin extends AbstractAdmin {
             ->with('Conditions', ['class' => 'col-md-6'])
                 ->add('lag_limit', null, ['required' => false, 'help' => 'Cancel and re-issue buy order when it trails market ask by this much (USD)'])
                 ->add('buy_max_ppo', null, ['label' => 'Buy Max PPO', 'required' => false, 'help' => 'Only place buy order if the 26-minute percentage price oscillator is less than or equal to this amout (value in %)'])
+                ->add('sell_min_ppo', null, ['label' => 'Sell Min PPO', 'required' => false, 'help' => 'Only place sell order if the 26-minute percentage price oscillator is greater than or equal to this amount (value in %)'])
             ->end()
         ;
     }
@@ -49,6 +50,7 @@ class TierAdmin extends AbstractAdmin {
             ->add('ask_spread')
             ->add('lag_limit')
             ->add('buy_max_ppo', null, ['label' => 'Buy Max PPO'])
+            ->add('sell_min_ppo', null, ['label' => 'Sell Min PPO'])
             ->add('_action', null, [
                     'actions' => [
                         'edit' => [],

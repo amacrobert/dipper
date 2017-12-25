@@ -20,7 +20,7 @@ class DipperCoreService {
         $this->em->getConnection()->getConfiguration()->setSQLLogger(null);
     }
 
-    public function cycle() {
+    public function cycle($tick = 0) {
 
         $stats = (object)[
             'buys' => 0,
@@ -34,6 +34,7 @@ class DipperCoreService {
         ];
 
         $open_order_pairs = $this->getOpenOrderPairs();
+
         $ppo = $this->gdax->ppo($this->product);
         $stats->ppo = $ppo;
 
@@ -57,6 +58,7 @@ class DipperCoreService {
                 // Current PPO is above the buy max PPO. Don't place an order.
                 $buy_max_ppo = $order_pair->getTier()->getBuyMaxPPO();
                 if ($buy_max_ppo !== null && $ppo > $buy_max_ppo) {
+                    $order_pair->setStatus('awaiting-dip');
                     continue;
                 }
 
@@ -135,12 +137,20 @@ class DipperCoreService {
                             continue;
                         }
 
+                        // If the tier has sell min ppo specified, check that current ppo is above it
+                        $sell_min_ppo = $order_pair->getTier()->getSellMinPPO();
+                        if ($sell_min_ppo !== null && $ppo < $sell_min_ppo) {
+                            $order_pair->setStatus('awaiting-spike');
+                            continue;
+                        }
+
                         $spend = $order_pair->getTier()->getSpend();
                         $spread = $order_pair->getTier()->getAskSpread();
                         $coin_price = $buy_order->getPrice() + $spread;
 
                         // If the buy incurred a fee, recoup it on the sell
                         $coin_price += ($buy_order->getPrice() / $buy_order->getExecutedValue()) * $buy_order->getFillFees();
+
                         // Always ask above the market bid
                         if ($coin_price <= $market_bid) {
                             $coin_price = $market_bid + .01;
@@ -150,7 +160,10 @@ class DipperCoreService {
                         $coin_size = $buy_order->getFilledSize();
 
                         $sell_order = $this->sell(round($coin_price, 2), $coin_size);
-                        $order_pair->setSellOrder($sell_order);
+                        $order_pair
+                            ->setSellOrder($sell_order)
+                            ->setStatus('open')
+                        ;
                         $stats->swaps++;
                     }
 
@@ -162,6 +175,8 @@ class DipperCoreService {
                         $partially_filled = $buy_order->getExecutedValue() > 0;
 
                         if (!$partially_filled && $lag_limit && $lag_limit < $market_ask - $buy_order->getPrice()) {
+                            $stats->lagouts++;
+
                             $order_pair
                                 ->setStatus('lagged-out')
                                 ->setCompletedAtToNow()
@@ -169,8 +184,6 @@ class DipperCoreService {
                             ;
 
                             $this->gdax->deleteOrder($buy_order->getGdaxId());
-
-                            $stats->lagouts++;
                         }
                     }
                 }
@@ -201,9 +214,6 @@ class DipperCoreService {
                             else {
                                 throw $e;
                             }
-                        }
-                        catch (\Exception $e) {
-                            $stats->errors[] = $e->getMessage();
                         }
                     }
 

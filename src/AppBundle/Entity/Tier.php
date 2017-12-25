@@ -2,7 +2,7 @@
 
 namespace AppBundle\Entity;
 
-class Tier {
+class Tier implements \JsonSerializable {
 
     private $id;
     private $sequence;
@@ -11,10 +11,21 @@ class Tier {
     private $ask_spread;
     private $lag_limit;
     private $buy_max_ppo;
+    private $sell_min_ppo;
     private $active = false;
 
     public function __toString() {
         return $this->getId() ? 'Tier ' . $this->getSequence() : 'New Tier';
+    }
+
+    public function jsonSerialize() {
+        return [
+            'id' => $this->getId(),
+            'sequence' => $this->getSequence(),
+            'spend' => $this->getSpend(),
+            'buy_max_ppo' => $this->getBuyMaxPPO(),
+            'active' => $this->isActive(),
+        ];
     }
 
     public function getId() {
@@ -72,6 +83,15 @@ class Tier {
 
     public function setBuyMaxPPO($ppo) {
         $this->buy_max_ppo = $ppo;
+        return $this;
+    }
+
+    public function getSellMinPPO() {
+        return $this->sell_min_ppo;
+    }
+
+    public function setSellMinPPO($ppo) {
+        $this->sell_min_ppo = $ppo;
         return $this;
     }
 
