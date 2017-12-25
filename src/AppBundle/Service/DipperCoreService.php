@@ -338,7 +338,7 @@ class DipperCoreService {
      * Return local orders indexed by the GDAX order id.
      */
     public function ordersFromGdax() {
-        $gdax_orders = $this->gdax->getOrders(['status' => 'all', 'product_id' => $this->product]);
+        $gdax_orders = $this->gdax->getOrders(['product_id' => $this->product]);
         $orders_by_gdax_id = [];
 
         foreach ($gdax_orders as $gdax_order) {
