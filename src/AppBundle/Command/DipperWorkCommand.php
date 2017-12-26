@@ -49,6 +49,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
             catch (\GuzzleHttp\Exception\BadResponseException $e) {
                 $response = json_decode($e->getResponse()->getBody());
                 $status_code = $e->getResponse()->getStatusCode();
+                $output->write(' <error>' . $status_code . '</error>');
 
                 switch ($status_code) {
                     // Rate limit exceeded - cool down
