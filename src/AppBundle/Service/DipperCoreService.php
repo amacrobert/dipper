@@ -15,7 +15,7 @@ class DipperCoreService {
     public function __construct(\AppBundle\Service\GdaxService $gdax, $em) {
         $this->gdax = $gdax;
         $this->em = $em;
-        $this->product = 'LTC-USD';
+        $this->product = 'BTC-USD';
         // Turn off sql logger to save memory
         $this->em->getConnection()->getConfiguration()->setSQLLogger(null);
     }
@@ -245,14 +245,34 @@ class DipperCoreService {
     }
 
     public function buy($price, $size) {
-        $gdax_order = $this->gdax->postLimitOrder($this->product, 'buy', $price, $size);
+        $params = [
+            'type' => 'limit',
+            'product_id' => $this->product,
+            'side' => 'buy',
+            'price' => $price,
+            'size' => $size,
+            'post_only' => true,
+        ];
+
+        $gdax_order = $this->gdax->postOrder($this->product, 'buy', $price, $size);
         $order = $this->makeOrderFromGdax($gdax_order);
 
         return $order;
     }
 
     public function sell($price, $size) {
-        $gdax_order = $this->gdax->postLimitOrder($this->product, 'sell', $price, $size);
+        $params = [
+            'type' => 'limit',
+            'product_id' => $this->product,
+            'side' => 'sell',
+            'price' => $price,
+            'size' => $size,
+            'post_only' => true,
+            'time_in_force' => 'GTT',
+            'cancel_after' => 'min',
+        ];
+
+        $gdax_order = $this->gdax->postOrder($params);
         $order = $this->makeOrderFromGdax($gdax_order);
 
         return $order;

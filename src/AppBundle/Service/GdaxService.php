@@ -121,16 +121,7 @@ class GdaxService {
         return $this->callGdax('/products/' . $product . '/ticker');
     }
 
-    public function postLimitOrder($product, $side, $coin_price, $coin_size) {
-        $body = [
-            'type'       => 'limit',
-            'side'       => $side,
-            'product_id' => $product,
-            'price'      => $coin_price,
-            'size'       => $coin_size,
-            'post_only'  => true,
-        ];
-
+    public function postOrder($body) {
         return $this->callGdax('/orders', 'POST', $body);
     }
 
