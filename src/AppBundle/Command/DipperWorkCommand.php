@@ -17,16 +17,20 @@ class DipperWorkCommand extends ContainerAwareCommand {
         $this
             ->setName('dipper:work')
             ->setDescription('Run one dipper cycle')
+            ->addOption('no-throbber', null, InputOption::VALUE_NONE, 'hide the progress indicator (useful for logging)')
         ;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output) {
         $dipper = $this->getContainer()->get(DipperCoreService::class);
+        $this->show_throbber = !$input->getOption('no-throbber');
 
         $this->counter = 0;
         $this->total_earnings = 0;
         $throbber = new ProgressBar($output);
-        $throbber->start();
+        if ($this->show_throbber) {
+            $throbber->start();
+        }
 
         $t_start = $t_end = 0;
 
@@ -73,8 +77,10 @@ class DipperWorkCommand extends ContainerAwareCommand {
                 }
             }
 
-            $throbber->advance();
-            $output->write(' PPO: ' . round($r->ppo, 4) . '%');
+            if ($this->show_throbber) {
+                $throbber->advance();
+                $output->write(' PPO: ' . round($r->ppo, 4) . '%');
+            }
 
             $t_end = microtime(true);
         }
@@ -83,7 +89,9 @@ class DipperWorkCommand extends ContainerAwareCommand {
     private function output($r, $output, $throbber) {
         if ($r->buys + $r->swaps + $r->sales + $r->lagouts + $r->canceled + count($r->errors) > 0) {
 
-            $throbber->clear();
+            if ($this->show_throbber) {
+                $throbber->clear();
+            }
 
             if (!($this->counter % 20)) {
                 $output->writeln('BUYS | SWAPS | SALES | LAGOUTS | CANCELED | EARNINGS  | SESSION TOTAL');
@@ -103,7 +111,9 @@ class DipperWorkCommand extends ContainerAwareCommand {
                 $output->writeln(' ! ' . $error);
             }
 
-            $throbber->display();
+            if ($this->show_throbber) {
+                $throbber->display();
+            }
             $this->counter++;
         }
     }
