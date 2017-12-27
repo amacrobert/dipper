@@ -79,6 +79,7 @@ class DipperCoreService {
                     $stats->buys++;
                 }
                 catch (\Exception $e) {
+                    throw $e;
                     $stats->errors[] = $e->getMessage();
                 }
             }
@@ -117,13 +118,10 @@ class DipperCoreService {
                                 throw $e;
                             }
                         }
-                        catch (\Exception $e) {
-                            $stats->errors[] = $e->getMessage();
-                        }
                     }
 
                     // Buy order has been settled - create corresponding sell order
-                    if ($buy_order->getSettled()) {
+                    if ($buy_order && $buy_order->getSettled()) {
 
                         // If the reason the buy order was settled was because it was
                         // rejected, close this order pair
@@ -175,15 +173,14 @@ class DipperCoreService {
                         $partially_filled = $buy_order->getExecutedValue() > 0;
 
                         if (!$partially_filled && $lag_limit && $lag_limit < $market_ask - $buy_order->getPrice()) {
-                            $stats->lagouts++;
-
-                            $order_pair
-                                ->setStatus('lagged-out')
-                                ->setCompletedAtToNow()
-                                ->setActive(false)
-                            ;
-
-                            $this->gdax->deleteOrder($buy_order->getGdaxId());
+                            try {
+                                $this->gdax->deleteOrder($buy_order->getGdaxId());
+                                $order_pair->setBuyOrder(null);
+                                $stats->lagouts++;
+                            }
+                            catch (\Exception $e) {
+                                $stats->errors[] = $e->getMesage();
+                            }
                         }
                     }
                 }
@@ -254,7 +251,7 @@ class DipperCoreService {
             'post_only' => true,
         ];
 
-        $gdax_order = $this->gdax->postOrder($this->product, 'buy', $price, $size);
+        $gdax_order = $this->gdax->postOrder($params);
         $order = $this->makeOrderFromGdax($gdax_order);
 
         return $order;
