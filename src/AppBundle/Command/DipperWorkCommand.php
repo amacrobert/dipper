@@ -54,7 +54,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
                 switch ($status_code) {
                     // Rate limit exceeded - cool down
                     case 429:
-                        sleep(5);
+                        sleep(3);
                         break;
 
                     case 400:
@@ -81,7 +81,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
     }
 
     private function output($r, $output, $throbber) {
-        if ($r->buys + $r->swaps + $r->sales + $r->canceled + count($r->errors) > 0) {
+        if ($r->buys + $r->swaps + $r->sales + $r->lagouts + $r->canceled + count($r->errors) > 0) {
 
             $throbber->clear();
 
