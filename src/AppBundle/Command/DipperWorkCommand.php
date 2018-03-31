@@ -79,7 +79,7 @@ class DipperWorkCommand extends ContainerAwareCommand {
 
             if ($this->show_throbber) {
                 $throbber->advance();
-                $output->write(' PPO: ' . round($r->ppo, 4) . '%');
+                $output->write(' PPO: ' . (isset($r) ? round($r->ppo, 4) : '-') . '%');
             }
 
             $t_end = microtime(true);

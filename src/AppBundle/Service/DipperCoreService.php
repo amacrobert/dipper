@@ -333,7 +333,7 @@ class DipperCoreService {
             ->setSize($gdax_order->size)
             ->setProductId($gdax_order->product_id)
             ->setSide($gdax_order->side)
-            ->setStp($gdax_order->stp)
+            ->setStp($gdax_order->stp ?? null)
             ->setType($gdax_order->type)
             ->setTimeInForce($gdax_order->time_in_force)
             ->setPostOnly($gdax_order->post_only)
